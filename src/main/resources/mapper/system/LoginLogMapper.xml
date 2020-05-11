@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.LoginLogDao">
+
+    <resultMap id="loginLogMap" type="net.kuper.tz.system.entity.LoginLogEntity">
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="loginName" column="login_name"/>
+        <result property="password" column="password"/>
+        <result property="salt" column="salt"/>
+        <result property="successed" column="successed"/>
+        <result property="clientType" column="client_type"/>
+        <result property="clientVersion" column="client_version"/>
+        <result property="ip" column="ip"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`user_id` ,
+        `t`.`login_name` ,
+        `t`.`successed` ,
+        `t`.`client_type` ,
+        `t`.`client_version` ,
+        `t`.`ip` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_login_log` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="loginName != null and loginName.trim() != ''">
+            AND `t`.`login_name` LIKE concat('%',#{loginName} ,'%')
+        </if>
+        <if test="successed != null">
+            AND `t`.`successed` = #{successed}
+        </if>
+        <if test="clientType != null and clientType.trim() != ''">
+            AND `t`.`client_type` LIKE concat('%',#{clientType} ,'%')
+        </if>
+        <if test="clientVersion != null and clientVersion.trim() != ''">
+            AND `t`.`client_version` LIKE concat('%',#{clientVersion} ,'%')
+        </if>
+        <if test="ip != null and ip.trim() != ''">
+            AND `t`.`ip` LIKE concat('%',#{ip} ,'%')
+        </if>
+        <if test="createTime != null">
+            AND date_format(`t`.`create_time`,'%Y-%m-%d') = date_format(#{createTime},'%Y-%m-%d')
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'userId' == sidx ">
+                        order by `t`.`user_id`
+                    </when>
+                    <when test="'loginName' == sidx ">
+                        order by `t`.`login_name`
+                    </when>
+                    <when test="'password' == sidx ">
+                        order by `t`.`password`
+                    </when>
+                    <when test="'salt' == sidx ">
+                        order by `t`.`salt`
+                    </when>
+                    <when test="'successed' == sidx ">
+                        order by `t`.`successed`
+                    </when>
+                    <when test="'clientType' == sidx ">
+                        order by `t`.`client_type`
+                    </when>
+                    <when test="'clientVersion' == sidx ">
+                        order by `t`.`client_version`
+                    </when>
+                    <when test="'ip' == sidx ">
+                        order by `t`.`ip`
+                    </when>
+                    <when test="'updateTime' == sidx ">
+                        order by `t`.`update_time`
+                    </when>
+                    <when test="'createTime' == sidx ">
+                        order by `t`.`create_time`
+                    </when>
+                    <when test="'deleteTime' == sidx ">
+                        order by `t`.`delete_time`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="loginLogMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="loginLogMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.LoginLogUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_login_log`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="userId != null">
+                `user_id` ,
+            </if>
+            <if test="loginName != null">
+                `login_name` ,
+            </if>
+            <if test="password != null">
+                `password` ,
+            </if>
+            <if test="salt != null">
+                `salt` ,
+            </if>
+            <if test="successed != null">
+                `successed` ,
+            </if>
+            <if test="clientType != null">
+                `client_type` ,
+            </if>
+            <if test="clientVersion != null">
+                `client_version` ,
+            </if>
+            <if test="ip != null">
+                `ip` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="userId != null">
+                #{userId} ,
+            </if>
+            <if test="loginName != null">
+                #{loginName} ,
+            </if>
+            <if test="password != null">
+                #{password} ,
+            </if>
+            <if test="salt != null">
+                #{salt} ,
+            </if>
+            <if test="successed != null">
+                #{successed} ,
+            </if>
+            <if test="clientType != null">
+                #{clientType} ,
+            </if>
+            <if test="clientVersion != null">
+                #{clientVersion} ,
+            </if>
+            <if test="ip != null">
+                #{ip} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.LoginLogUpdateEntity">
+        update `sys_login_log`
+        <set>
+            <if test="userId != null">
+                `user_id` = #{userId} ,
+            </if>
+            <if test="loginName != null">
+                `login_name` = #{loginName} ,
+            </if>
+            <if test="password != null">
+                `password` = #{password} ,
+            </if>
+            <if test="salt != null">
+                `salt` = #{salt} ,
+            </if>
+            <if test="successed != null">
+                `successed` = #{successed} ,
+            </if>
+            <if test="clientType != null">
+                `client_type` = #{clientType} ,
+            </if>
+            <if test="clientVersion != null">
+                `client_version` = #{clientVersion} ,
+            </if>
+            <if test="ip != null">
+                `ip` = #{ip} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_login_log` set delete_time = now(),`update_time` = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_login_log` set delete_time = now(),`update_time` = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

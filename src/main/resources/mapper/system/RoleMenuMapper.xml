@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.RoleMenuDao">
+
+    <resultMap id="roleMenuMap" type="net.kuper.tz.system.entity.RoleMenuEntity">
+        <result property="id" column="id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="menuId" column="menu_id"/>
+        <result property="rightType" column="right_type"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="editable" column="editable"/>
+        <result property="menuName" column="menu_name"/>
+        <result property="menuType" column="menu_type"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="checked" column="checked"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`role_id` ,
+        `t`.`menu_id` ,
+        `t`.`right_type` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_role_menu` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="roleId != null and roleId.trim() != ''">
+            AND `t`.`role_id` LIKE concat('%',#{roleId} ,'%')
+        </if>
+        <if test="menuId != null and menuId.trim() != ''">
+            AND `t`.`menu_id` LIKE concat('%',#{menuId} ,'%')
+        </if>
+        <if test="rightType != null">
+            AND `t`.`right_type` = #{rightType}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'roleId' == sidx ">
+                        order by `t`.`role_id`
+                    </when>
+                    <when test="'menuId' == sidx ">
+                        order by `t`.`menu_id`
+                    </when>
+                    <when test="'rightType' == sidx ">
+                        order by `t`.`right_type`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="roleMenuMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="roleMenuMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryListBySuperRole" parameterType="map"  resultMap="roleMenuMap">
+        select sm.id as menu_id,
+               sm.parent_id,
+               sm.title as menu_name,
+               sm.type as menu_type,
+               1 as editable,
+               IF(bsm.id is not null , 1, 0) as checked,
+               bsm.right_type
+        from sys_menu sm
+                 left join (
+            select srm.id,
+                   srm.menu_id,
+                   srm.right_type
+            from sys_role_menu srm
+            left join sys_menu sm on sm.id = srm.menu_id
+            where srm.delete_time is null
+              and sm.delete_time is null
+              and srm.role_id = #{roleId}
+        ) bsm on sm.id = bsm.menu_id
+        where sm.delete_time is null
+    </select>
+
+    <select id="queryListByUser" parameterType="map"  resultMap="roleMenuMap">
+        select sm.parent_id,
+               sm.id as menu_id,
+               sm.title as menu_name,
+               sm.type as menu_type,
+               IF(osm.right_type = 1, 1, 0) as editable,
+               IF(bsm.id is not null , 1, 0) as checked,
+               bsm.right_type
+        from sys_menu sm
+                 left join (
+            select um.menu_id, um.right_type
+            from sys_user_menu um
+            left join sys_menu sm on sm.id = um.menu_id
+            where um.user_id = #{userId}
+              and um.delete_time is null
+              and um.right_type = 1
+            union all
+            select t.*
+            from (
+                     select srm.menu_id,
+                            srm.right_type
+                     from sys_role_menu srm
+                     left join sys_menu sm on sm.id = srm.menu_id
+                     where srm.delete_time is null
+                       and sm.delete_time is null
+                       and srm.right_type = 1
+                       and srm.role_id in (
+                         select t.role_id
+                         from sys_user_role t
+                         left join sys_role sr on sr.id = t.role_id
+                         where t.delete_time is null
+                           and t.user_id = #{userId}
+                           and sr.delete_time is null
+                     )
+                       and srm.menu_id not in (
+                         select t.menu_id
+                         from sys_user_menu t
+                         left join sys_menu sm on sm.id = t.menu_id
+                         where t.delete_time is null
+                           and sm.delete_time is null
+                           and t.user_id = #{userId}
+                     )
+                     order by srm.right_type desc
+                 ) t
+            group by t.menu_id
+        ) osm on osm.menu_id = sm.id
+                 left join (
+            select srm.id,
+                   srm.menu_id,
+                   srm.right_type
+            from sys_role_menu srm
+            left join sys_menu sm on sm.id = srm.menu_id
+            where srm.delete_time is null
+              and sm.delete_time is null
+              and srm.role_id = #{roleId}
+        ) bsm on bsm.menu_id = sm.id
+        where sm.delete_time is null
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.RoleMenuUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_role_menu`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="roleId != null">
+                `role_id` ,
+            </if>
+            <if test="menuId != null">
+                `menu_id` ,
+            </if>
+            <if test="rightType != null">
+                `right_type` ,
+            </if>
+            `update_time` ,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="roleId != null">
+                #{roleId} ,
+            </if>
+            <if test="menuId != null">
+                #{menuId} ,
+            </if>
+            <if test="rightType != null">
+                #{rightType} ,
+            </if>
+            now(),
+        </trim>
+    </insert>
+
+
+    <insert id="saveBatch" parameterType="java.util.List" >
+        insert into `sys_role_menu` (`id` ,`role_id` ,`menu_id` ,`right_type`)
+        values
+        <foreach collection="list" item="item" separator="," index="key">
+            (UUID(),#{item.roleId} ,#{item.menuId} ,#{item.rightType})
+        </foreach>
+
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.RoleMenuUpdateEntity">
+        update `sys_role_menu`
+        <set>
+            <if test="roleId != null">
+                `role_id` = #{roleId} ,
+            </if>
+            <if test="menuId != null">
+                `menu_id` = #{menuId} ,
+            </if>
+            <if test="rightType != null">
+                `right_type` = #{rightType} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="deleteByRole">
+        update `sys_role_menu` set delete_time = now(), update_time = now() where `role_id` = #{roleId}
+    </update>
+
+    <update id="delete">
+        update `sys_role_menu` set delete_time = now(), update_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_role_menu` set delete_time = now(), update_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.UserDao">
+
+    <resultMap id="userMap" type="net.kuper.tz.system.entity.UserEntity">
+        <result property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="salt" column="salt"/>
+        <result property="email" column="email"/>
+        <result property="mobile" column="mobile"/>
+        <result property="status" column="status"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="token" column="token"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="deptCode" column="dept_code"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`username` ,
+        `t`.`password` ,
+        `t`.`salt` ,
+        `t`.`email` ,
+        `t`.`mobile` ,
+        `t`.`status` ,
+        `t`.`dept_id` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        ut.token as token,
+        sd.name as dept_name,
+        sd.code as dept_code
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from `sys_user` as `t`
+        left join sys_user_token ut on ut.user_id = t.id
+        left join sys_dept sd on sd.id = t.dept_id
+    </sql>
+
+    <sql id="dft_where">
+        <if test="username != null and username.trim() != ''">
+            AND `t`.`username` LIKE concat('%',#{username} ,'%')
+        </if>
+        <if test="email != null and email.trim() != ''">
+            AND `t`.`email` LIKE concat('%',#{email} ,'%')
+        </if>
+        <if test="mobile != null and mobile.trim() != ''">
+            AND `t`.`mobile` LIKE concat('%',#{mobile} ,'%')
+        </if>
+        <if test="status != null">
+            AND `t`.`status` = #{status}
+        </if>
+        <if test="deptId != null">
+            AND `t`.`dept_id` in (
+            select t.id
+            from sys_dept t
+            where find_in_set(t.id, unionDeptChildrenId(concat('', #{deptId}))) > 0
+            and t.status = 1
+            and t.delete_time is null
+            )
+        </if>
+        <if test="updateTime != null">
+            AND date_format(`t`.`update_time`,'%Y-%m-%d') = date_format(#{updateTime},'%Y-%m-%d')
+        </if>
+        <if test="createTime != null">
+            AND date_format(`t`.`create_time`,'%Y-%m-%d') = date_format(#{createTime},'%Y-%m-%d')
+        </if>
+        <if test="deleteTime != null">
+            AND date_format(`t`.`delete_time`,'%Y-%m-%d') = date_format(#{deleteTime},'%Y-%m-%d')
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'username' == sidx ">
+                        order by `t`.`username`
+                    </when>
+                    <when test="'email' == sidx ">
+                        order by `t`.`email`
+                    </when>
+                    <when test="'mobile' == sidx ">
+                        order by `t`.`mobile`
+                    </when>
+                    <when test="'status' == sidx ">
+                        order by `t`.`status`
+                    </when>
+                    <when test="'deptId' == sidx ">
+                        order by `t`.`dept_id`
+                    </when>
+                    <when test="'updateTime' == sidx ">
+                        order by `t`.`update_time`
+                    </when>
+                    <when test="'createTime' == sidx ">
+                        order by `t`.`create_time`
+                    </when>
+                    <when test="'deleteTime' == sidx ">
+                        order by `t`.`delete_time`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="userMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="userMap">
+        <include refid="select_normal"/>
+        WHERE 1 = 1
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryByUserName" resultMap="userMap">
+		select
+			`t`.`id`,
+			`t`.`username`,
+			`t`.`password`,
+			`t`.`salt`,
+			`t`.`email`,
+			`t`.`mobile`,
+			`t`.`status`,
+			`t`.`dept_id`,
+			`t`.`create_time`,
+			`t`.`delete_time`
+		from sys_user `t`
+		where t.username = #{value}
+	</select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.UserUpdateEntity">
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_user`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="username != null">
+                `username` ,
+            </if>
+            <if test="password != null">
+                `password` ,
+            </if>
+            <if test="salt != null">
+                `salt` ,
+            </if>
+            <if test="email != null">
+                `email` ,
+            </if>
+            <if test="mobile != null">
+                `mobile` ,
+            </if>
+            <if test="status != null">
+                `status` ,
+            </if>
+            <if test="deptId != null">
+                `dept_id` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="username != null">
+                #{username} ,
+            </if>
+            <if test="password != null">
+                #{password} ,
+            </if>
+            <if test="salt != null">
+                #{salt} ,
+            </if>
+            <if test="email != null">
+                #{email} ,
+            </if>
+            <if test="mobile != null">
+                #{mobile} ,
+            </if>
+            <if test="status != null">
+                #{status} ,
+            </if>
+            <if test="deptId != null">
+                #{deptId} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.UserUpdateEntity">
+        update `sys_user`
+        <set>
+            <if test="username != null">
+                `username` = #{username} ,
+            </if>
+            <if test="password != null">
+                `password` = #{password} ,
+            </if>
+            <if test="salt != null">
+                `salt` = #{salt} ,
+            </if>
+            <if test="email != null">
+                `email` = #{email} ,
+            </if>
+            <if test="mobile != null">
+                `mobile` = #{mobile} ,
+            </if>
+            <if test="status != null">
+                `status` = #{status} ,
+            </if>
+            <if test="deptId != null">
+                `dept_id` = #{deptId} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="updatePwd" parameterType="net.kuper.tz.system.entity.UserUpdateEntity">
+        update `sys_user` set `update_time` = now() , `password` = #{password} ,  `salt` = #{salt}  where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_user` set `update_time` = now() , delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_user` set `update_time` = now() , delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

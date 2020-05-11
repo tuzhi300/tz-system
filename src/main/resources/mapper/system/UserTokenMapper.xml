@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.UserTokenDao">
+
+    <resultMap type="net.kuper.tz.system.entity.UserTokenEntity" id="userTokenMap">
+        <result property="userId" column="user_id"/>
+        <result property="token" column="token"/>
+        <result property="expireTime" column="expire_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`user_id` ,
+        `t`.`token` ,
+        `t`.`expire_time` ,
+        `t`.`update_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_user_token` as `t`
+    </sql>
+
+    <select id="queryObject" resultMap="userTokenMap">
+        <include refid="select_normal"/>
+        where `t`.`user_id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="userTokenMap">
+        <include refid="select_normal"/>
+        WHERE 1=1
+        <if test="key != null and key.trim() != ''">
+            AND `t`.`user_id` LIKE concat('%',#{key},'%')
+        </if>
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                order by ${sidx} ${order}
+            </when>
+            <otherwise>
+                order by `t`.`user_id` desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.UserTokenUpdateEntity" >
+        insert into `sys_user_token`(
+          `user_id` ,
+          `token` ,
+          `expire_time` ,
+          `update_time`
+        )
+        values(
+          #{userId} ,
+          #{token} ,
+          #{expireTime} ,
+          #{updateTime}
+        )
+        ON DUPLICATE KEY UPDATE
+        `token` = #{token} ,
+        `expire_time` = #{expireTime} ,
+        `update_time` = #{updateTime}
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.UserTokenUpdateEntity">
+        update `sys_user_token`
+        <set>
+            `token` = #{token} ,
+            `expire_time` = #{expireTime} ,
+            `update_time` = #{updateTime} 
+        </set>
+        where `user_id` = #{userId}
+    </update>
+
+    <delete id="delete">
+        delete from `sys_user_token` where `user_id` = #{value}
+    </delete>
+
+    <delete id="deleteBatch">
+        delete from `sys_user_token` where `user_id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="queryObjectByToken" resultMap="userTokenMap">
+        <include refid="select_normal"/>
+        where `t`.`token` = #{value}
+    </select>
+
+</mapper>

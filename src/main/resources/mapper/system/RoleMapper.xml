@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.RoleDao">
+
+    <resultMap id="roleMap" type="net.kuper.tz.system.entity.RoleEntity">
+        <result property="id" column="id"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="roleName" column="role_name"/>
+        <result property="count" column="count"/>
+        <result property="remark" column="remark"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="curCount" column="cur_count"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`dept_id` ,
+        `t`.`role_name` ,
+        `t`.`remark` ,
+        `t`.`count` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        sd.name as dept_name,
+        (select count(0) from sys_user_role sur left join sys_user su on su.id = sur.user_id where sur.delete_time is null and su.delete_time is null and sur.role_id = t.id) as cur_count
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_role` as `t`
+        left join sys_dept sd on sd.id = t.dept_id
+    </sql>
+
+    <sql id="dft_where">
+        <if test="deptId != null">
+            AND find_in_set(t.dept_id,unionDeptChildrenId(concat('',#{deptId}))) > 0
+        </if>
+        <if test="roleName != null and roleName.trim() != ''">
+            AND `t`.`role_name` LIKE concat('%',#{roleName} ,'%')
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'deptId' == sidx ">
+                        order by `t`.`dept_id`
+                    </when>
+                    <when test="'roleName' == sidx ">
+                        order by `t`.`role_name`
+                    </when>
+                    <when test="'remark' == sidx ">
+                        order by `t`.`remark`
+                    </when>
+                    <when test="'updateTime' == sidx ">
+                        order by `t`.`update_time`
+                    </when>
+                    <when test="'createTime' == sidx ">
+                        order by `t`.`create_time`
+                    </when>
+                    <when test="'deleteTime' == sidx ">
+                        order by `t`.`delete_time`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="roleMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="roleMap">
+        <include refid="select_normal"/>
+        WHERE 1 = 1
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryUserRoleIds" resultType="java.lang.String">
+        select role_id from sys_user_role where user_id = #{userId} and delete_time is null
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.RoleUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_role`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="deptId != null">
+                `dept_id` ,
+            </if>
+            <if test="roleName != null">
+                `role_name` ,
+            </if>
+            <if test="count != null">
+                `count` ,
+            </if>
+            <if test="remark != null">
+                `remark` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="deptId != null">
+                #{deptId} ,
+            </if>
+            <if test="roleName != null">
+                #{roleName} ,
+            </if>
+            <if test="count != null">
+                #{count} ,
+            </if>
+            <if test="remark != null">
+                #{remark} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.RoleUpdateEntity">
+        update `sys_role`
+        <set>
+            <if test="deptId != null">
+                `dept_id` = #{deptId} ,
+            </if>
+            <if test="roleName != null">
+                `role_name` = #{roleName} ,
+            </if>
+            <if test="count != null">
+                `count` = #{count} ,
+            </if>
+            <if test="remark != null">
+                `remark` = #{remark} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_role` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_role` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

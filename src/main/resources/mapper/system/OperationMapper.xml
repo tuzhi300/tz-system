@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.OperationDao">
+
+    <resultMap id="operationMap" type="net.kuper.tz.system.entity.OperationEntity">
+        <result property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="controllerId" column="controller_id"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="controllerName" column="controller_name"/>
+        <result property="controller" column="controller"/>
+        <result property="moduleKey" column="module_key"/>
+        <result property="moduleName" column="module_name"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`name` ,
+        `t`.`code` ,
+        `t`.`controller_id` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        sc.name as controller_name,
+        sc.controller as controller,
+        sm.key as module_key,
+        sm.display_name as module_name
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from `sys_operation` as `t`
+        left join sys_controller sc on sc.id = t.controller_id
+        left join sys_macro sm on sm.key = sc.module
+    </sql>
+
+    <sql id="dft_where">
+        <if test="name != null and name.trim() != ''">
+            AND `t`.`name` LIKE concat('%',#{name} ,'%')
+        </if>
+        <if test="code != null and code.trim() != ''">
+            AND `t`.`code` LIKE concat('%',#{code} ,'%')
+        </if>
+        <if test="controllerId != null">
+            AND `t`.`controller_id` = #{controllerId}
+        </if>
+    </sql>
+    <sql id="ex_where">
+        <include refid="dft_where"/>
+        <if test="module != null and module.trim() != ''">
+            AND `sc`.`module` = #{module}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'name' == sidx ">
+                        order by `t`.`name`
+                    </when>
+                    <when test="'code' == sidx ">
+                        order by `t`.`code`
+                    </when>
+                    <when test="'controllerId' == sidx ">
+                        order by `t`.`controller_id`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="operationMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="operationMap">
+        <include refid="select_normal"/>
+        WHERE 1 = 1
+        <include refid="ex_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryUserOperationCodeList" parameterType="map" resultType="java.lang.String">
+        select t.code
+        from sys_operation t
+        where t.id in (
+            select t.operation_id
+            from sys_element_operation t
+            where t.element_id in (
+                select sue.element_id
+                from sys_user_element sue
+                left join sys_element se on sue.element_id = se.id
+                where sue.user_id = #{userId}
+                  and sue.right_type != 2
+                  and sue.delete_time is null
+                  and se.status = 1
+                  and se.delete_time is null
+                union all
+                select re.element_id
+                from sys_role_element re
+                left join sys_element se on re.element_id = se.id
+                where se.status = 1
+                and se.delete_time is null
+                and re.delete_time is null
+                and re.role_id in (
+                    select role_id
+                    from sys_user_role
+                    where user_id = #{userId}
+                    and delete_time is null
+                )
+                and re.element_id not in (
+                    select element_id
+                    from sys_user_element
+                    where user_id = #{userId}
+                    and delete_time is null
+                )
+            )
+        )
+        and t.delete_time is null
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.OperationUpdateEntity">
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_operation`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="name != null">
+                `name` ,
+            </if>
+            <if test="code != null">
+                `code` ,
+            </if>
+            <if test="controllerId != null">
+                `controller_id` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="name != null">
+                #{name} ,
+            </if>
+            <if test="code != null">
+                #{code} ,
+            </if>
+            <if test="controllerId != null">
+                #{controllerId} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.OperationUpdateEntity">
+        update `sys_operation`
+        <set>
+            <if test="name != null">
+                `name` = #{name} ,
+            </if>
+            <if test="code != null">
+                `code` = #{code} ,
+            </if>
+            <if test="controllerId != null">
+                `controller_id` = #{controllerId} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_operation` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_operation` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

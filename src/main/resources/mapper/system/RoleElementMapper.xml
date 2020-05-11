@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.RoleElementDao">
+
+    <resultMap id="roleElementMap" type="net.kuper.tz.system.entity.RoleElementEntity">
+        <result property="id" column="id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="elementId" column="element_id"/>
+        <result property="rightType" column="right_type"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="editable" column="editable"/>
+        <result property="elementName" column="element_name"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="checked" column="checked"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`role_id` ,
+        `t`.`element_id` ,
+        `t`.`right_type` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from `sys_role_element` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="roleId != null and roleId.trim() != ''">
+            AND `t`.`role_id` LIKE concat('%',#{roleId} ,'%')
+        </if>
+        <if test="userId != null and userId.trim() != ''">
+            AND `t`.`role_id` in (
+                select sur.role_id
+                from sys_user_role sur
+                where sur.user_id = #{userId}
+                and sur.delete_time is null
+            )
+        </if>
+        <if test="elementId != null and elementId.trim() != ''">
+            AND `t`.`element_id` LIKE concat('%',#{elementId} ,'%')
+        </if>
+        <if test="rightType != null">
+            AND `t`.`right_type` = #{rightType}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'roleId' == sidx ">
+                        order by `t`.`role_id`
+                    </when>
+                    <when test="'elementId' == sidx ">
+                        order by `t`.`element_id`
+                    </when>
+                    <when test="'rightType' == sidx ">
+                        order by `t`.`right_type`
+                    </when>
+                    <when test="'updateTime' == sidx ">
+                        order by `t`.`update_time`
+                    </when>
+                    <when test="'createTime' == sidx ">
+                        order by `t`.`create_time`
+                    </when>
+                    <when test="'deleteTime' == sidx ">
+                        order by `t`.`delete_time`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="roleElementMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="roleElementMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryListBySuperRole" resultMap="roleElementMap">
+        select se.id                        as element_id,
+               se.name                      as element_name,
+               se.category_id               as category_id,
+               1 as editable,
+               IF(cre.id is not null, 1, 0) as checked,
+               cre.right_type               as right_type
+        from sys_element se
+                 left join (
+            select t.id, t.element_id, t.right_type
+            from sys_role_element t
+            left join sys_element se on se.id = t.element_id
+            where t.role_id = #{roleId}
+              and t.delete_time is null
+              and se.delete_time is null
+        ) cre on cre.element_id = se.id
+        where se.delete_time is null
+    </select>
+    <select id="queryListByUser" resultMap="roleElementMap">
+        select se.id                        as element_id,
+               se.name                      as element_name,
+               se.category_id               as category_id,
+               IF(ore.right_type = 1, 1, 0) as editable,
+               IF(cre.id is not null, 1, 0) as checked,
+               cre.right_type               as right_type
+        from sys_element se
+                 left join (
+            select *
+            from (
+                     select t.element_id, t.right_type
+                     from sys_user_element t
+                     left join sys_element se on se.id = t.element_id
+                     where t.delete_time is null
+                       and se.delete_time is null
+                       and t.user_id = #{userId}
+                       and t.right_type = 1
+                     union all
+                     select t.element_id, t.right_type
+                     from sys_role_element t
+                     left join sys_element se on se.id = t.element_id
+                     where t.delete_time is null
+                       and se.delete_time is null
+                       and t.right_type = 1
+                       and t.role_id in (
+                         select t.role_id
+                         from sys_user_role sur
+                         left join sys_role sr on sr.id = sur.role_id
+                         where sur.delete_time is null
+                           and sr.delete_time is null
+                           and sur.user_id = #{userId}
+                     )
+                       and t.element_id not in (
+                         select t.element_id
+                         from sys_user_element sue
+                         left join sys_element se on se.id = sue.element_id
+                         where sue.delete_time is null
+                           and se.delete_time is null
+                           and sue.user_id = #{userId}
+                     )
+                 ) t
+            group by t.element_id) ore on ore.element_id = se.id
+                 left join (
+            select t.id, t.element_id, t.right_type
+            from sys_role_element t
+            left join sys_element se on se.id = t.element_id
+            where t.role_id = #{roleId}
+              and se.delete_time is null
+              and t.delete_time is null
+        ) cre on cre.element_id = se.id
+        where se.delete_time is null
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.RoleElementUpdateEntity">
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_role_element`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="roleId != null">
+                `role_id` ,
+            </if>
+            <if test="elementId != null">
+                `element_id` ,
+            </if>
+            <if test="rightType != null">
+                `right_type` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="roleId != null">
+                #{roleId} ,
+            </if>
+            <if test="elementId != null">
+                #{elementId} ,
+            </if>
+            <if test="rightType != null">
+                #{rightType} ,
+            </if>
+        </trim>
+    </insert>
+
+
+    <insert id="saveBatch" parameterType="java.util.List">
+         insert into `sys_role_element` (`id` ,`role_id` ,`element_id` ,`right_type` )
+         values
+        <foreach collection="list" item="item" separator="," index="key">
+         (UUID(), #{item.roleId} ,#{item.elementId} ,#{item.rightType})
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.RoleElementUpdateEntity">
+        update `sys_role_element`
+        <set>
+            <if test="roleId != null">
+                `role_id` = #{roleId} ,
+            </if>
+            <if test="elementId != null">
+                `element_id` = #{elementId} ,
+            </if>
+            <if test="rightType != null">
+                `right_type` = #{rightType} ,
+            </if>
+            <if test="updateTime != null">
+                `update_time` = #{updateTime} ,
+            </if>
+            <if test="createTime != null">
+                `create_time` = #{createTime} ,
+            </if>
+            <if test="deleteTime != null">
+                `delete_time` = #{deleteTime} ,
+            </if>
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="deleteByRole">
+        update `sys_role_element` set update_time = now(), delete_time = now() where `role_id` = #{value}
+    </update>
+
+    <update id="delete">
+        update `sys_role_element` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_role_element` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

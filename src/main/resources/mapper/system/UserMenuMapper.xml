@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.UserMenuDao">
+
+    <resultMap id="userMenuMap" type="net.kuper.tz.system.entity.UserMenuEntity">
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="menuId" column="menu_id"/>
+        <result property="rightType" column="right_type"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="editable" column="editable"/>
+        <result property="checked" column="checked"/>
+        <result property="rightType" column="right_type"/>
+        <result property="menuType" column="menu_type"/>
+        <result property="menuName" column="menu_name"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`user_id` ,
+        `t`.`menu_id` ,
+        `t`.`right_type` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from `sys_user_menu` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="userId != null and userId.trim() != ''">
+            AND `t`.`user_id` = #{userId}
+        </if>
+        <if test="menuId != null and menuId.trim() != ''">
+            AND `t`.`menu_id` = #{menuId}
+        </if>
+        <if test="rightType != null">
+            AND `t`.`right_type` = #{rightType}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'userId' == sidx ">
+                        order by `t`.`user_id`
+                    </when>
+                    <when test="'menuId' == sidx ">
+                        order by `t`.`menu_id`
+                    </when>
+                    <when test="'rightType' == sidx ">
+                        order by `t`.`right_type`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="userMenuMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="userMenuMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <!--    查询用户菜单授权信息-->
+    <select id="queryListByUser" resultMap="userMenuMap">
+        select sm.id                             as menu_id,
+               sm.title                          as menu_name,
+               sm.parent_id                      as parent_id,
+               IF(osm.menu_id is not null, 1, 0) as editable,
+               IF(csm.menu_id is not null, 1, 0) as checked,
+               IF(csm.role_id is not null, 1, 0) as roleChecked,
+               csm.right_type                    as right_type,
+               sm.type                           as menu_type
+        from sys_menu sm
+                 left join (
+            select *
+            from (
+                     select t.*
+                     from (
+                              select sum.menu_id,
+                                     sum.right_type
+                              from sys_user_menu sum
+                              left join sys_menu sm on sm.id = sum.menu_id
+                              where sum.delete_time is null
+                                and sm.delete_time is null
+                                and sum.user_id = #{curUserId}
+                              union all
+                              select srm.menu_id,
+                                     srm.right_type
+                              from sys_role_menu srm
+                              left join sys_menu sm on sm.id = srm.menu_id
+                              where srm.role_id in (
+                                  select sur.role_id
+                                  from sys_user_role sur
+                                  where sur.delete_time is null
+                                    and sur.user_id = #{curUserId}
+                              )
+                                and srm.menu_id not in (
+                                  select sum.menu_id
+                                  from sys_user_menu sum
+                                  where sum.delete_time is null
+                                    and sum.right_type = 2
+                                    and sum.user_id = #{curUserId}
+                              )
+                                and sm.delete_time is null
+                                and srm.delete_time is null
+                          ) t
+                     group by t.menu_id
+                 ) t
+            where t.right_type = 1
+        ) osm on osm.menu_id = sm.id
+                 left join (
+            select t.*
+            from (
+                     select sum.menu_id,
+                            sum.right_type,
+                            sum.user_id,
+                            null as role_id
+                     from sys_user_menu sum
+                     left join sys_menu sm on sm.id = sum.menu_id
+                     where sum.delete_time is null
+                       and sm.delete_time is null
+                       and sum.user_id = #{userId}
+                     union all
+                     select srm.menu_id,
+                            srm.right_type,
+                            null as user_id,
+                            srm.role_id
+                     from sys_role_menu srm
+                     left join sys_menu sm on sm.id = srm.menu_id
+                     where srm.role_id in (
+                         select sur.role_id
+                         from sys_user_role sur
+                         where sur.delete_time is null
+                           and sur.user_id = #{userId}
+                     )
+                       and srm.menu_id not in (
+                         select sum.menu_id
+                         from sys_user_menu sum
+                         where sum.delete_time is null
+                           and sum.right_type = 2
+                           and sum.user_id = #{userId}
+                     )
+                       and srm.delete_time is null
+                       and sm.delete_time is null
+                 ) t
+            group by t.menu_id
+        ) csm on csm.menu_id = sm.id
+        where sm.delete_time is null
+    </select>
+
+    <select id="queryEnableMenuIdBySuperRole" resultType="java.lang.String">
+        select sm.id from sys_menu sm
+        where sm.delete_time is null
+        and sm.type = 1
+    </select>
+
+    <select id="queryEnableMenuIdByUser" resultType="java.lang.String">
+        select um.menu_id
+        from sys_user_menu um
+        left join sys_menu sm on um.menu_id = sm.id
+        where um.user_id = #{userId}
+          and um.delete_time is null
+          and um.right_type = 1
+          and sm.type = 1
+        union all
+        select srm.menu_id
+        from sys_role_menu srm
+        left join sys_menu sm on srm.menu_id = sm.id
+        where srm.delete_time is null
+          and srm.right_type = 1
+          and sm.type = 1
+          and srm.role_id in (
+            select t.role_id
+            from sys_user_role t
+            where t.delete_time is null
+              and t.user_id = #{userId}
+        )
+          and srm.menu_id not in (
+            select t.menu_id
+            from sys_user_menu t
+            where t.delete_time is null
+              and t.user_id = #{userId}
+        )
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.UserMenuUpdateEntity">
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_user_menu`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="userId != null">
+                `user_id` ,
+            </if>
+            <if test="menuId != null">
+                `menu_id` ,
+            </if>
+            <if test="rightType != null">
+                `right_type` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="userId != null">
+                #{userId} ,
+            </if>
+            <if test="menuId != null">
+                #{menuId} ,
+            </if>
+            <if test="rightType != null">
+                #{rightType} ,
+            </if>
+        </trim>
+    </insert>
+
+    <insert id="saveBatch" parameterType="java.util.List">
+        insert into `sys_user_menu` (`id` ,`user_id` , `menu_id` , `right_type`)
+        values
+        <foreach collection="list" item="item" separator="," index="key">
+            (UUID() , #{item.userId} ,#{item.menuId} ,#{item.rightType})
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.UserMenuUpdateEntity">
+        update `sys_user_menu`
+        <set>
+            <if test="userId != null">
+                `user_id` = #{userId} ,
+            </if>
+            <if test="menuId != null">
+                `menu_id` = #{menuId} ,
+            </if>
+            <if test="rightType != null">
+                `right_type` = #{rightType} ,
+            </if>
+            <if test="createTime != null">
+                `create_time` = #{createTime} ,
+            </if>
+            <if test="deleteTime != null">
+                `delete_time` = #{deleteTime} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_user_menu` set delete_time = now(), update_time = now()  where `id` = #{value}
+    </update>
+
+    <update id="deleteByUser">
+        update `sys_user_menu` set delete_time = now() , update_time = now() where `user_id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_user_menu` set delete_time = now() , update_time = now()  where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

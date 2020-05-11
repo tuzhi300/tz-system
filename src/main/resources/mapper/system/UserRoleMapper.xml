@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.UserRoleDao">
+
+    <resultMap id="userRoleMap" type="net.kuper.tz.system.entity.UserRoleEntity">
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="roleId" column="role_id"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="roleName" column="role_name"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="editable" column="editable"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`user_id` ,
+        `t`.`role_id` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_user_role` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="userId != null and userId.trim() != ''">
+            AND `t`.`user_id` LIKE concat('%',#{userId} ,'%')
+        </if>
+        <if test="roleId != null and roleId.trim() != ''">
+            AND `t`.`role_id` LIKE concat('%',#{roleId} ,'%')
+        </if>
+        <if test="updateTime != null">
+            AND date_format(`t`.`update_time`,'%Y-%m-%d') = date_format(#{updateTime},'%Y-%m-%d')
+        </if>
+        <if test="createTime != null">
+            AND date_format(`t`.`create_time`,'%Y-%m-%d') = date_format(#{createTime},'%Y-%m-%d')
+        </if>
+        <if test="deleteTime != null">
+            AND date_format(`t`.`delete_time`,'%Y-%m-%d') = date_format(#{deleteTime},'%Y-%m-%d')
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'userId' == sidx ">
+                        order by `t`.`user_id`
+                    </when>
+                    <when test="'roleId' == sidx ">
+                        order by `t`.`role_id`
+                    </when>
+                    <when test="'updateTime' == sidx ">
+                        order by `t`.`update_time`
+                    </when>
+                    <when test="'createTime' == sidx ">
+                        order by `t`.`create_time`
+                    </when>
+                    <when test="'deleteTime' == sidx ">
+                        order by `t`.`delete_time`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="userRoleMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="userRoleMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+    <select id="queryListByUser" parameterType="map" resultMap="userRoleMap">
+        select sur.*,
+               sr.role_name,
+               IF(osd.dept_id is not null, 1, 0) as editable,
+               sd.name                       as dept_name
+        from sys_user_role sur
+                 left join sys_role sr on sur.role_id = sr.id
+                 left join sys_dept sd on sr.dept_id = sd.id
+                 left join (
+            select distinct sud.dept_id
+            from sys_user_data sud
+                     left join sys_dept sd on sud.dept_id = sd.id
+            where sud.delete_time is null
+              and sd.delete_time is null
+              and sud.right_type != 2
+              and sud.user_id = #{curUserId}
+            union all
+            select distinct srd.dept_id
+            from sys_role_data srd
+                     left join sys_dept s on srd.dept_id = s.id
+            where srd.delete_time is null
+              and s.delete_time is null
+              and srd.role_id in (
+                select sur.role_id
+                from sys_user_role sur
+                         left join sys_role sr on sur.role_id = sr.id
+                where sur.delete_time is null
+                  and sur.user_id =  #{curUserId}
+                  and sr.delete_time is null
+            )
+        ) osd on sr.dept_id = osd.dept_id
+        where sur.delete_time is null
+          and sr.delete_time is null
+          and sur.user_id = #{userId}
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.UserRoleUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_user_role`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="userId != null">
+                `user_id` ,
+            </if>
+            <if test="roleId != null">
+                `role_id` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="userId != null">
+                #{userId} ,
+            </if>
+            <if test="roleId != null">
+                #{roleId} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.UserRoleUpdateEntity">
+        update `sys_user_role`
+        <set>
+            <if test="userId != null">
+                `user_id` = #{userId} ,
+            </if>
+            <if test="roleId != null">
+                `role_id` = #{roleId} ,
+            </if>
+            <if test="updateTime != null">
+                `update_time` = #{updateTime} ,
+            </if>
+            <if test="createTime != null">
+                `create_time` = #{createTime} ,
+            </if>
+            <if test="deleteTime != null">
+                `delete_time` = #{deleteTime} ,
+            </if>
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_user_role` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_user_role` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

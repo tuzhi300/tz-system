@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.ElementDao">
+
+    <resultMap id="elementMap" type="net.kuper.tz.system.entity.ElementEntity">
+        <result property="id" column="id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="status" column="status"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="categoryName" column="category_name"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`category_id` ,
+        `t`.`name` ,
+        `t`.`code` ,
+        `t`.`status` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        ec.name as category_name
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_element` as `t`
+        left join sys_element_category ec on ec.id = t.category_id
+    </sql>
+
+    <sql id="dft_where">
+        <if test="categoryId != null">
+            AND `t`.`category_id` = #{categoryId}
+        </if>
+        <if test="name != null and name.trim() != ''">
+            AND `t`.`name` LIKE concat('%',#{name} ,'%')
+        </if>
+        <if test="name != null and name.trim() != ''">
+            AND `t`.`code` LIKE concat('%',#{code} ,'%')
+        </if>
+        <if test="status != null">
+            AND `t`.`status` = #{status}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'categoryId' == sidx ">
+                        order by `t`.`category_id`
+                    </when>
+                    <when test="'name' == sidx ">
+                        order by `t`.`name`
+                    </when>
+                    <when test="'code' == sidx ">
+                        order by `t`.`code`
+                    </when>
+                    <when test="'status' == sidx ">
+                        order by `t`.`status`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="queryObject" resultMap="elementMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="elementMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+    <select id="queryCodeListByUser" parameterType="map" resultType="java.lang.String">
+        select t.code from sys_element t
+        where t.delete_time is null
+        and t.status = 1
+        and t.id in (
+            select sue.element_id from sys_user_element sue
+            where sue.delete_time is null
+            and sue.user_id = #{userId}
+            and sue.right_type != 2
+            union all
+            select sre.element_id from sys_role_element sre
+            where sre.delete_time is null
+            and sre.role_id in (
+                select sur.role_id from sys_user_role sur
+                where sur.delete_time is null
+                and sur.user_id = #{userId}
+            )
+            and sre.element_id not in (
+                select sue.element_id from sys_user_element sue
+                where sue.delete_time is null
+                and sue.user_id = #{userId}
+            )
+        )
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.ElementUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_element`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="categoryId != null">
+                `category_id` ,
+            </if>
+            <if test="name != null">
+                `name` ,
+            </if>
+            <if test="code != null">
+                `code` ,
+            </if>
+            <if test="status != null">
+                `status` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="categoryId != null">
+                #{categoryId} ,
+            </if>
+            <if test="name != null">
+                #{name} ,
+            </if>
+            <if test="code != null">
+                #{code} ,
+            </if>
+            <if test="status != null">
+                #{status} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.ElementUpdateEntity">
+        update `sys_element`
+        <set>
+            <if test="categoryId != null">
+                `category_id` = #{categoryId} ,
+            </if>
+            <if test="name != null">
+                `name` = #{name} ,
+            </if>
+            <if test="code != null">
+                `code` = #{code} ,
+            </if>
+            <if test="status != null">
+                `status` = #{status} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_element` set delete_time = now() ,update_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_element` set delete_time = now() ,update_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

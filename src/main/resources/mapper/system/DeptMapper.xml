@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.DeptDao">
+
+    <resultMap id="deptMap" type="net.kuper.tz.system.entity.DeptEntity">
+        <result property="id" column="id"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="code" column="code"/>
+        <result property="name" column="name"/>
+        <result property="orderNum" column="order_num"/>
+        <result property="status" column="status"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="parentName" column="parent_name"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`parent_id` ,
+        `t`.`code` ,
+        `t`.`name` ,
+        `t`.`order_num` ,
+        `t`.`status` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        dp.name as parent_name
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_dept` as `t`
+        left join sys_dept dp on dp.id = t.parent_id
+    </sql>
+
+    <sql id="dft_where">
+        <if test="parentId != null">
+            AND `t`.`parent_id` = #{parentId}
+        </if>
+        <if test="code != null and code.trim() != ''">
+            AND `t`.`code` LIKE concat('%',#{code} ,'%')
+        </if>
+        <if test="name != null and name.trim() != ''">
+            AND `t`.`name` LIKE concat('%',#{name} ,'%')
+        </if>
+        <if test="orderNum != null">
+            AND `t`.`order_num` = #{orderNum}
+        </if>
+        <if test="status != null">
+            AND `t`.`status` = #{status}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'parentId' == sidx ">
+                        order by `t`.`parent_id`
+                    </when>
+                    <when test="'code' == sidx ">
+                        order by `t`.`code`
+                    </when>
+                    <when test="'name' == sidx ">
+                        order by `t`.`name`
+                    </when>
+                    <when test="'orderNum' == sidx ">
+                        order by `t`.`order_num`
+                    </when>
+                    <when test="'status' == sidx ">
+                        order by `t`.`status`
+                    </when>
+                    <otherwise>
+                        order by `t`.`order_num`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`order_num`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'DESC'">
+                DESC
+            </when>
+            <otherwise>
+                ASC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="deptMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="deptMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryListByParentId" resultMap="deptMap">
+        select t.*
+        from sys_dept t
+        where t.delete_time is null
+        <if test="parentId != null ">
+            AND `t`.`parent_id` = #{ parentId }
+        </if>
+        <if test="parentId == null ">
+            AND `t`.`parent_id` = 0
+        </if>
+        And t.status = #{status}
+    </select>
+
+    <select id="queryChildrenId" resultType="java.lang.String">
+        select t.id
+        from sys_menu t
+        where FIND_IN_SET(t.id,unionDeptChildrenId(concat('',#{parentId}))) > 0
+        AND `t`.`delete_time` is null
+        <if test="status != null ">
+            AND `t`.`status` = #{status}
+        </if>
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.DeptUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_dept`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="parentId != null">
+                `parent_id` ,
+            </if>
+            <if test="code != null">
+                `code` ,
+            </if>
+            <if test="name != null">
+                `name` ,
+            </if>
+            <if test="orderNum != null">
+                `order_num` ,
+            </if>
+            <if test="status != null">
+                `status` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="parentId != null">
+                #{parentId} ,
+            </if>
+            <if test="code != null">
+                #{code} ,
+            </if>
+            <if test="name != null">
+                #{name} ,
+            </if>
+            <if test="orderNum != null">
+                #{orderNum} ,
+            </if>
+            <if test="status != null">
+                #{status} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.DeptUpdateEntity">
+        update `sys_dept`
+        <set>
+            <if test="parentId != null">
+                `parent_id` = #{parentId} ,
+            </if>
+            <if test="code != null">
+                `code` = #{code} ,
+            </if>
+            <if test="name != null">
+                `name` = #{name} ,
+            </if>
+            <if test="orderNum != null">
+                `order_num` = #{orderNum} ,
+            </if>
+            <if test="status != null">
+                `status` = #{status} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_dept` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_dept` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

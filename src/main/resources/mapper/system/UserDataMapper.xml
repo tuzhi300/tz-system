@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.UserDataDao">
+
+    <resultMap id="userDataMap" type="net.kuper.tz.system.entity.UserDataEntity">
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="disable" column="disable"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`user_id` ,
+        `t`.`dept_id` ,
+        `t`.`disable` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time`
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from  `sys_user_data` as `t`
+    </sql>
+
+    <sql id="dft_where">
+        <if test="userId != null and userId.trim() != ''">
+            AND `t`.`user_id` = #{userId}
+        </if>
+        <if test="deptId != null and deptId.trim() != ''">
+            AND `t`.`dept_id` = #{deptId}
+        </if>
+        <if test="rightType != null">
+            AND `t`.`right_type` = #{rightType}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'userId' == sidx ">
+                        order by `t`.`user_id`
+                    </when>
+                    <when test="'deptId' == sidx ">
+                        order by `t`.`dept_id`
+                    </when>
+                    <when test="'rightType' == sidx ">
+                        order by `t`.`right_type`
+                    </when>
+                    <otherwise>
+                        order by `t`.`create_time`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`create_time`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="userDataMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="userDataMap">
+        <include refid="select_normal"/>
+        WHERE 1 = 1
+        <include refid="dft_where"/>
+        <include refid="dft_order"/>
+    </select>
+
+    <select id="queryEnableDeptIdList" resultType="java.lang.String">
+        select sud.dept_id
+        from sys_user_data sud
+        left join sys_dept sd on sd.id = sud.dept_id
+        where sud.user_id = #{userId}
+          and sd.delete_time is null
+          and sud.right_type = 1
+          and sud.delete_time is null
+        union all
+        select srd.dept_id
+        from sys_role_data srd
+        left join sys_dept sd on sd.id = srd.dept_id
+        where srd.role_id in (
+            select sur.role_id
+            from sys_user_role sur
+            left join sys_role sr on sr.id = sur.role_id
+            where sur.user_id = #{userId}
+              and sr.delete_time is null
+              and sur.delete_time is null
+        )
+          and srd.dept_id not in (
+            select sud.dept_id
+            from sys_user_data sud
+            left join sys_dept sd on sd.id = sud.dept_id
+            where sud.user_id = #{userId}
+              and sud.delete_time is null
+              and sd.delete_time is null
+        )
+          and srd.right_type = 1
+          and srd.delete_time is null
+          and sd.delete_time is null
+    </select>
+
+    <select id="queryListByUser" resultMap="userDataMap">
+        select sd.id                             as dept_id,
+               sd.name                           as dept_name,
+               sd.parent_id                      as parent_id,
+               IF(osd.dept_id is not null, 1, 0) as editable,
+               IF(csd.dept_id is not null, 1, 0) as checked,
+               IF(csd.role_id is not null, 1, 0) as roleChecked,
+               csd.right_type                    as right_type
+        from sys_dept sd
+                 left join (
+            select *
+            from (
+                     select *
+                     from (
+                              select sud.dept_id,
+                                     sud.right_type
+                              from sys_user_data sud
+                              left join sys_dept sd on sd.id = sud.dept_id
+                              where sud.delete_time is null
+                                and sd.delete_time is null
+                                and sud.user_id = #{curUserId}
+                              union all
+                              select srd.dept_id,
+                                     srd.right_type
+                              from sys_role_data srd
+                              left join sys_dept sd on sd.id = srd.dept_id
+                              where srd.delete_time is null
+                                and sd.delete_time is null
+                                and srd.role_id in (
+                                  select sur.role_id
+                                  from sys_user_role sur
+                                  left join sys_role sr on sr.id = sur.role_id
+                                  where sur.delete_time is null
+                                    and sr.delete_time is null
+                                    and sur.user_id = #{curUserId}
+                              )
+                                and srd.dept_id not in (
+                                  select sud.dept_id
+                                  from sys_user_data sud
+                                  left join sys_dept sd on sd.id = sud.dept_id
+                                  where sud.delete_time is null
+                                    and sd.delete_time is null
+                                    and sud.user_id = #{curUserId}
+                              )
+                          ) t
+                     group by t.dept_id
+                 ) t
+            where t.right_type = 1
+        ) osd on osd.dept_id = sd.id
+                 left join (
+            select *
+            from (
+                     select sud.dept_id,
+                            sud.right_type,
+                            null as role_id
+                     from sys_user_data sud
+                     left join sys_dept sd on sd.id = sud.dept_id
+                     where sud.delete_time is null
+                       and sd.delete_time is null
+                       and sud.user_id = #{userId}
+                     union all
+                     select srd.dept_id,
+                            srd.right_type,
+                            srd.role_id
+                     from sys_role_data srd
+                     left join sys_dept sd on sd.id = srd.dept_id
+                     where srd.delete_time is null
+                       and sd.delete_time is null
+                       and srd.role_id in (
+                         select sur.role_id
+                         from sys_user_role sur
+                         left join sys_role sr on sr.id = sur.role_id
+                         where sur.delete_time is null
+                           and sr.delete_time is null
+                           and sur.user_id = #{userId}
+                     )
+                       and srd.dept_id not in (
+                         select sud.dept_id
+                         from sys_user_data sud
+                         left join sys_dept sd on sd.id = sud.dept_id
+                         where sud.delete_time is null
+                           and sd.delete_time is null
+                           and sud.user_id = #{userId}
+                     )
+                 ) t
+            group by t.dept_id
+        ) csd on csd.dept_id = sd.id
+        where sd.delete_time is null
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.UserDataUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_user_data`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="userId != null">
+                `user_id` ,
+            </if>
+            <if test="deptId != null">
+                `dept_id` ,
+            </if>
+            <if test="rightType != null">
+                `right_type` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="userId != null">
+                #{userId} ,
+            </if>
+            <if test="deptId != null">
+                #{deptId} ,
+            </if>
+            <if test="rightType != null">
+                #{rightType} ,
+            </if>
+        </trim>
+    </insert>
+
+    <insert id="saveBatch" parameterType="java.util.List">
+        insert into `sys_user_data` (`id` ,`user_id` , `dept_id` , `right_type`)
+        values
+        <foreach collection="list" item="item" separator="," index="key">
+            (UUID() , #{item.userId} ,#{item.deptId} ,#{item.rightType})
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.UserDataUpdateEntity">
+        update `sys_user_data`
+        <set>
+            <if test="userId != null">
+                `user_id` = #{userId} ,
+            </if>
+            <if test="deptId != null">
+                `dept_id` = #{deptId} ,
+            </if>
+            <if test="disable != null">
+                `disable` = #{disable} ,
+            </if>
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_user_data` set delete_time = now() , update_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteByUser">
+        update `sys_user_data` set delete_time = now() , update_time = now() where `user_id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_user_data` set delete_time = now() , update_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>

@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.kuper.tz.system.dao.MenuDao">
+
+    <resultMap id="menuMap" type="net.kuper.tz.system.entity.MenuEntity">
+        <result property="id" column="id"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="type" column="type"/>
+        <result property="title" column="title"/>
+        <result property="component" column="component"/>
+        <result property="routePath" column="route_path"/>
+        <result property="routeName" column="route_name"/>
+        <result property="icon" column="icon"/>
+        <result property="affix" column="affix"/>
+        <result property="hidden" column="hidden"/>
+        <result property="breadcrumb" column="breadcrumb"/>
+        <result property="openIn" column="open_in"/>
+        <result property="activeMenu" column="active_menu"/>
+        <result property="noComponent" column="no_component"/>
+        <result property="noCache" column="no_cache"/>
+        <result property="sortNo" column="sort_no"/>
+        <result property="status" column="status"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="deleteTime" column="delete_time"/>
+        <result property="parentTitle" column="parent_title"/>
+    </resultMap>
+
+    <sql id="columns">
+        `t`.`id` ,
+        `t`.`parent_id` ,
+        `t`.`type` ,
+        `t`.`title` ,
+        `t`.`component` ,
+        `t`.`route_path` ,
+        `t`.`route_name` ,
+        `t`.`icon` ,
+        `t`.`affix` ,
+        `t`.`hidden` ,
+        `t`.`breadcrumb` ,
+        `t`.`open_in` ,
+        `t`.`active_menu` ,
+        `t`.`no_component` ,
+        `t`.`no_cache` ,
+        `t`.`sort_no` ,
+        `t`.`status` ,
+        `t`.`update_time` ,
+        `t`.`create_time` ,
+        `t`.`delete_time` ,
+        smp.title as parent_title
+    </sql>
+
+    <sql id="select_normal">
+        select
+        <include refid="columns"/>
+        from `sys_menu` as `t`
+        left join sys_menu smp on smp.id = t.parent_id
+    </sql>
+
+    <sql id="dft_where">
+        <if test="parentId != null">
+            AND `t`.`parent_id` = #{parentId}
+        </if>
+        <if test="type != null">
+            AND `t`.`type` = #{type}
+        </if>
+        <if test="title != null and title.trim() != ''">
+            AND `t`.`title` LIKE concat('%',#{title} ,'%')
+        </if>
+        <if test="component != null and component.trim() != ''">
+            AND `t`.`component` LIKE concat('%',#{component} ,'%')
+        </if>
+        <if test="routePath != null and routePath.trim() != ''">
+            AND `t`.`route_path` LIKE concat('%',#{routePath} ,'%')
+        </if>
+        <if test="routeName != null and routeName.trim() != ''">
+            AND `t`.`route_name` LIKE concat('%',#{routeName} ,'%')
+        </if>
+        <if test="icon != null and icon.trim() != ''">
+            AND `t`.`icon` LIKE concat('%',#{icon} ,'%')
+        </if>
+        <if test="affix != null">
+            AND `t`.`affix` = #{affix}
+        </if>
+        <if test="hidden != null">
+            AND `t`.`hidden` = #{hidden}
+        </if>
+        <if test="breadcrumb != null">
+            AND `t`.`breadcrumb` = #{breadcrumb}
+        </if>
+        <if test="openIn != null">
+            AND `t`.`open_in` = #{openIn}
+        </if>
+        <if test="activeMenu != null and activeMenu.trim() != ''">
+            AND `t`.`active_menu` LIKE concat('%',#{activeMenu} ,'%')
+        </if>
+        <if test="noComponent != null">
+            AND `t`.`no_component` = #{noComponent}
+        </if>
+        <if test="noCache != null">
+            AND `t`.`no_cache` = #{noCache}
+        </if>
+        <if test="sortNo != null">
+            AND `t`.`sort_no` = #{sortNo}
+        </if>
+        <if test="status != null">
+            AND `t`.`status` = #{status}
+        </if>
+    </sql>
+
+    <sql id="dft_order">
+        <choose>
+            <when test="sidx != null and sidx.trim() != ''">
+                <choose>
+                    <when test="'parentId' == sidx ">
+                        order by `t`.`parent_id`
+                    </when>
+                    <when test="'type' == sidx ">
+                        order by `t`.`type`
+                    </when>
+                    <when test="'title' == sidx ">
+                        order by `t`.`title`
+                    </when>
+                    <when test="'component' == sidx ">
+                        order by `t`.`component`
+                    </when>
+                    <when test="'routePath' == sidx ">
+                        order by `t`.`route_path`
+                    </when>
+                    <when test="'routeName' == sidx ">
+                        order by `t`.`route_name`
+                    </when>
+                    <when test="'icon' == sidx ">
+                        order by `t`.`icon`
+                    </when>
+                    <when test="'affix' == sidx ">
+                        order by `t`.`affix`
+                    </when>
+                    <when test="'hidden' == sidx ">
+                        order by `t`.`hidden`
+                    </when>
+                    <when test="'breadcrumb' == sidx ">
+                        order by `t`.`breadcrumb`
+                    </when>
+                    <when test="'openIn' == sidx ">
+                        order by `t`.`open_in`
+                    </when>
+                    <when test="'activeMenu' == sidx ">
+                        order by `t`.`active_menu`
+                    </when>
+                    <when test="'noComponent' == sidx ">
+                        order by `t`.`no_component`
+                    </when>
+                    <when test="'noCache' == sidx ">
+                        order by `t`.`no_cache`
+                    </when>
+                    <when test="'status' == sidx ">
+                        order by `t`.`status`
+                    </when>
+                    <otherwise>
+                        order by `t`.`sort_no`
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                order by `t`.`sort_no`
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="stype == 'DESC'">
+                DESC
+            </when>
+            <otherwise>
+                ASC
+            </otherwise>
+        </choose>
+    </sql>
+
+
+    <select id="queryObject" resultMap="menuMap">
+        <include refid="select_normal"/>
+        where `t`.`id` = #{value}
+    </select>
+
+    <select id="queryList" parameterType="map" resultMap="menuMap">
+        <include refid="select_normal"/>
+        WHERE t.delete_time is null
+        order by t.sort_no asc
+    </select>
+    <!-- 用户菜单查询 -->
+    <select id="queryUserMenuList" parameterType="map" resultMap="menuMap">
+        <include refid="select_normal"/>
+        where t.delete_time is null
+        and t.status = 1
+        and FIND_IN_SET(t.id, unionMenuParentId(
+                (
+                    select group_concat(tmp.id separator ',')
+                    from (
+                             select sum.menu_id as id
+                             from sys_user_menu sum
+                             where sum.user_id = #{userId}
+                               and sum.right_type != 2
+                               and sum.delete_time is null
+                             union all
+                             select srm.menu_id as id
+                             from sys_role_menu srm
+                             where srm.role_id in (
+                                 select sur.role_id
+                                 from sys_user_role sur
+                                 where sur.user_id = #{userId}
+                                 and sur.delete_time is null
+                             )
+                               and srm.menu_id not in (
+                                 select sum2.menu_id
+                                 from sys_user_menu sum2
+                                 where sum2.user_id = #{userId}
+                                 and sum2.delete_time is null
+                             )
+                                and srm.delete_time is null
+                         ) tmp
+                )
+            )
+        )
+        order by t.sort_no asc
+    </select>
+
+    <select id="queryListByParentId" resultMap="menuMap">
+        select t.*
+        from sys_menu t
+        where t.delete_time is null
+        <if test="parentId != null ">
+            AND `t`.`parent_id` = #{value }
+        </if>
+        <if test="parentId == null ">
+            AND `t`.`parent_id` = 0
+        </if>
+        order by t.sort_no asc
+    </select>
+
+    <select id="queryChildrenId" resultType="java.lang.String">
+        select t.id
+        from sys_menu t
+        where FIND_IN_SET(t.id,unionMenuChildrenId(concat('',#{parentId}))) > 0
+        AND `t`.`delete_time` is null
+        <if test="status != null ">
+            AND `t`.`status` = #{status}
+        </if>
+    </select>
+
+    <insert id="save" parameterType="net.kuper.tz.system.entity.MenuUpdateEntity" >
+        <selectKey keyProperty="id" resultType="String" order="BEFORE">
+            select REPLACE(UUID(),'-','') from dual
+        </selectKey>
+        insert into `sys_menu`
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                `id` ,
+            </if>
+            <if test="parentId != null">
+                `parent_id` ,
+            </if>
+            <if test="type != null">
+                `type` ,
+            </if>
+            <if test="title != null">
+                `title` ,
+            </if>
+            <if test="component != null">
+                `component` ,
+            </if>
+            <if test="routePath != null">
+                `route_path` ,
+            </if>
+            <if test="routeName != null">
+                `route_name` ,
+            </if>
+            <if test="icon != null">
+                `icon` ,
+            </if>
+            <if test="affix != null">
+                `affix` ,
+            </if>
+            <if test="hidden != null">
+                `hidden` ,
+            </if>
+            <if test="breadcrumb != null">
+                `breadcrumb` ,
+            </if>
+            <if test="openIn != null">
+                `open_in` ,
+            </if>
+            <if test="activeMenu != null">
+                `active_menu` ,
+            </if>
+            <if test="noComponent != null">
+                `no_component` ,
+            </if>
+            <if test="noCache != null">
+                `no_cache` ,
+            </if>
+            <if test="sortNo != null">
+                `sort_no` ,
+            </if>
+            <if test="status != null">
+                `status` ,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id} ,
+            </if>
+            <if test="parentId != null">
+                #{parentId} ,
+            </if>
+            <if test="type != null">
+                #{type} ,
+            </if>
+            <if test="title != null">
+                #{title} ,
+            </if>
+            <if test="component != null">
+                #{component} ,
+            </if>
+            <if test="routePath != null">
+                #{routePath} ,
+            </if>
+            <if test="routeName != null">
+                #{routeName} ,
+            </if>
+            <if test="icon != null">
+                #{icon} ,
+            </if>
+            <if test="affix != null">
+                #{affix} ,
+            </if>
+            <if test="hidden != null">
+                #{hidden} ,
+            </if>
+            <if test="breadcrumb != null">
+                #{breadcrumb} ,
+            </if>
+            <if test="openIn != null">
+                #{openIn} ,
+            </if>
+            <if test="activeMenu != null">
+                #{activeMenu} ,
+            </if>
+            <if test="noComponent != null">
+                #{noComponent} ,
+            </if>
+            <if test="noCache != null">
+                #{noCache} ,
+            </if>
+            <if test="sortNo != null">
+                #{sortNo} ,
+            </if>
+            <if test="status != null">
+                #{status} ,
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="net.kuper.tz.system.entity.MenuUpdateEntity">
+        update `sys_menu`
+        <set>
+            <if test="parentId != null">
+                `parent_id` = #{parentId} ,
+            </if>
+            <if test="type != null">
+                `type` = #{type} ,
+            </if>
+            <if test="title != null">
+                `title` = #{title} ,
+            </if>
+            <if test="routePath != null">
+                `route_path` = #{routePath} ,
+            </if>
+            <if test="routeName != null">
+                `route_name` = #{routeName} ,
+            </if>
+            <if test="icon != null">
+                `icon` = #{icon} ,
+            </if>
+            <if test="affix != null">
+                `affix` = #{affix} ,
+            </if>
+            <if test="hidden != null">
+                `hidden` = #{hidden} ,
+            </if>
+            <if test="breadcrumb != null">
+                `breadcrumb` = #{breadcrumb} ,
+            </if>
+            <if test="openIn != null">
+                `open_in` = #{openIn} ,
+            </if>
+            <if test="activeMenu != null">
+                `active_menu` = #{activeMenu} ,
+            </if>
+            <if test="noComponent != null">
+                `no_component` = #{noComponent} ,
+            </if>
+            <if test="noCache != null">
+                `no_cache` = #{noCache} ,
+            </if>
+            <if test="sortNo != null">
+                `sort_no` = #{sortNo} ,
+            </if>
+            <if test="status != null">
+                `status` = #{status} ,
+            </if>
+            `component` = #{component} ,
+            `update_time` = now() ,
+        </set>
+        where `id` = #{id}
+    </update>
+
+    <update id="delete">
+        update `sys_menu` set delete_time = now() where `id` = #{value}
+    </update>
+
+    <update id="deleteBatch">
+        update `sys_menu` set delete_time = now() where `id` in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+
+</mapper>
